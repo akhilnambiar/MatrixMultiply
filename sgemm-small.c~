@@ -1,0 +1,62 @@
+#include <emmintrin.h> 
+
+void sgemm( int m, int n, float *A, float *C )
+{
+    __m128 column;
+    __m128 column_copy;
+    __m128 row_int;
+    __m128 answer_vector = _mm_setzero_ps();
+    int j;
+    for( int i = 0; i < m /4 * 4; i += 4) {
+	for( int k = 0; k < n; k++ ) {
+
+	    column = _mm_loadu_ps(A+i+k*m); //register blocking
+	    column_copy = _mm_loadu_ps(A+i+k*m);
+	    
+
+	    
+	    for(j = 0; j < m/4*4; j+= 4) {
+		
+		row_int = _mm_load1_ps(A+j+k*m); 
+		answer_vector = _mm_loadu_ps(C+i+j*m);
+		answer_vector = _mm_add_ps(answer_vector, _mm_mul_ps(column, row_int));
+		_mm_storeu_ps(C+i+j*m, answer_vector);
+		
+		row_int = _mm_load1_ps(A+(j+1)+k*m);
+		answer_vector = _mm_loadu_ps(C+i+(j+1)*m);
+		answer_vector = _mm_add_ps(answer_vector, _mm_mul_ps(column, row_int));
+		_mm_storeu_ps(C+i+(j+1)*m, answer_vector);
+
+		row_int = _mm_load1_ps(A+(j+2)+k*m); 
+		answer_vector = _mm_loadu_ps(C+i+(j+2)*m);
+		answer_vector = _mm_add_ps(answer_vector, _mm_mul_ps(column, row_int));
+		_mm_storeu_ps(C+i+(j+2)*m, answer_vector);
+		
+		row_int = _mm_load1_ps(A+(j+3)+k*m);
+		answer_vector = _mm_loadu_ps(C+i+(j+3)*m);
+		answer_vector = _mm_add_ps(answer_vector, _mm_mul_ps(column, row_int));
+		_mm_storeu_ps(C+i+(j+3)*m, answer_vector);
+
+
+
+
+		//C[i+j*m] += A[i+k*m] * A[j+k*m];  naive
+	    }
+	    while (j < m) {
+		row_int = _mm_load1_ps(A+j+k*m); //edge case of j not divisible by 4
+		answer_vector = _mm_loadu_ps(C+i+j*m);
+		answer_vector = _mm_add_ps(answer_vector, _mm_mul_ps(column, row_int));
+		_mm_storeu_ps(C+i+j*m, answer_vector);
+		j++;
+	    }	
+	}
+    }
+    
+    //cover edge case with naive
+     for( int i = m/4*4; i < m; i++) 
+	for( int k = 0; k < n; k++) 
+	    for( int j = 0; j < m; j++)
+		C[i+j*m] += A[i+k*m] * A[j+k*m];
+}
+
+//__m128 _mm_mul_ps (__m128 a, __m128 b) multiplies the 4 single precision FPs
